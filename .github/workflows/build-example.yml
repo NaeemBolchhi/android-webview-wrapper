@@ -10,22 +10,22 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # If your signing secrets are *Environment* secrets, set the environment name here:
     # environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 17
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
         with:
           gradle-version: 8.10.2
 
@@ -73,7 +73,7 @@ jobs:
             } >> "$GITHUB_ENV"
             echo "Signing with the provided keystore"
           else
-            echo "::warning::No signing secrets set, signing with the bundled test key"
+            echo "No signing secrets set, signing with the bundled test key"
           fi
 
       - name: Build release APK (universal)
@@ -86,7 +86,7 @@ jobs:
           mkdir dist
           cp app/build/outputs/apk/release/app-release.apk "dist/$APK_NAME"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ env.APP }}-${{ github.run_number }}
           path: dist/*.apk
