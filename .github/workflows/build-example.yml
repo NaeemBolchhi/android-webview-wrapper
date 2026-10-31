@@ -73,7 +73,7 @@ jobs:
             } >> "$GITHUB_ENV"
             echo "Signing with the provided keystore"
           else
-            echo "No signing secrets set, signing with the bundled test key"
+            echo "::warning::No signing secrets set, signing with the bundled test key"
           fi
 
       - name: Build release APK (universal)

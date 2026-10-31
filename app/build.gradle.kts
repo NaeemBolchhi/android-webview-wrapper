@@ -10,6 +10,7 @@ val cfg = rootProject.file("app-config.json").let {
     if (it.exists()) JsonSlurper().parse(it) as Map<*, *> else emptyMap<String, Any>()
 }
 fun str(k: String, d: String) = (cfg[k] as? String) ?: d
+fun quoted(v: String) = "\"" + v.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
 android {
     namespace = "app.wrapper"
@@ -21,8 +22,11 @@ android {
         targetSdk = 35
         versionCode = (cfg["versionCode"] as? Number)?.toInt() ?: 1
         versionName = str("versionName", "1.0")
-        val url = str("homeUrl", "https://example.com").replace("\\", "\\\\").replace("\"", "\\\"")
-        buildConfigField("String", "HOME_URL", "\"$url\"")
+        buildConfigField("String", "HOME_URL", quoted(str("homeUrl", "https://example.com")))
+        // Update checker: GitHub "owner/repo" the app was built in (empty = disabled) and the
+        // APK file-name prefix ("<AppName>") used to recognise this app's release assets.
+        buildConfigField("String", "UPDATE_REPO", quoted(str("updateRepo", "")))
+        buildConfigField("String", "APK_PREFIX", quoted(str("apkPrefix", "App")))
     }
 
     signingConfigs {

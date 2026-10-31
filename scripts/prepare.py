@@ -25,9 +25,23 @@ if not re.match(r"https?://", url):
 version_name = str(c.get("versionName") or os.environ.get("VERSION_NAME", "").strip() or "1.0")
 version_code = int(os.environ.get("BUILD_NUMBER", "").strip() or "1")
 
+# Same sanitising as the APK file name; the in-app update checker matches release assets by this prefix.
+safe = lambda s: re.sub(r"[^A-Za-z0-9._-]+", "_", s).strip("_")
+apk_prefix = safe(name) or "App"
+
+# The repo this build runs in (set automatically by GitHub Actions) becomes the update source.
+# Empty for local builds, which disables the update checker.
+update_repo = os.environ.get("GITHUB_REPOSITORY", "").strip()
+if update_repo and not re.fullmatch(r"[A-Za-z0-9._-]+/[A-Za-z0-9._-]+", update_repo):
+    print(f"::warning::Ignoring unexpected GITHUB_REPOSITORY value: {update_repo}")
+    update_repo = ""
+if not update_repo:
+    print("::warning::GITHUB_REPOSITORY not set, update checker will be disabled")
+
 (root / "app-config.json").write_text(json.dumps(
     {"appName": name, "homeUrl": url, "packageName": pkg,
-     "versionName": version_name, "versionCode": version_code}))
+     "versionName": version_name, "versionCode": version_code,
+     "apkPrefix": apk_prefix, "updateRepo": update_repo}))
 
 label = escape(name, {"'": "\\'", '"': '\\"'})
 if label[:1] in "@?":
@@ -75,9 +89,8 @@ if "ic_launcher_foreground" in names:
 else:
     print(f"::warning::No icon.png in configs/{app}, using the default icon")
 
-safe = lambda s: re.sub(r"[^A-Za-z0-9._-]+", "_", s).strip("_")
-apk = f"{safe(name) or 'App'}-v{safe(version_name)}-{version_code}.apk"
+apk = f"{apk_prefix}-v{safe(version_name)}-{version_code}.apk"
 if os.environ.get("GITHUB_OUTPUT"):
     with open(os.environ["GITHUB_OUTPUT"], "a") as f:
         f.write(f"apk_name={apk}\n")
-print(f"Configured {name} ({pkg}) {version_name} build {version_code} -> {apk}")
+print(f"Configured {name} ({pkg}) {version_name} build {version_code} -> {apk}; updates from {update_repo or '(disabled)'}")

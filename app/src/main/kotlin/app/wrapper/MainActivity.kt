@@ -210,6 +210,8 @@ class MainActivity : ComponentActivity() {
                 runOnUiThread { if (!isDestroyed) web.loadUrl(BuildConfig.HOME_URL) }
             }.start()
         }
+
+        UpdateChecker.start(this)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
