@@ -1,0 +1,87 @@
+# To build another app: copy this file, change `name` and APP below,
+# and create configs/<APP>/config.json (+ icon.png). Nothing else to edit.
+name: Build APK (example)
+
+env:
+  APP: example
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # If your signing secrets are *Environment* secrets, set the environment name here:
+    # environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.10.2
+
+      - name: Download filter lists (uBlock Origin + EasyList)
+        run: |
+          d=app/src/main/assets/filters
+          mkdir -p "$d"
+          dl() { curl -fsSL --retry 3 "$2" -o "$d/$1.txt" || echo "::warning::could not download $1"; }
+          u=https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters
+          dl ubo-filters   "$u/filters.min.txt"
+          dl ubo-privacy   "$u/privacy.min.txt"
+          dl ubo-badware   "$u/badware.min.txt"
+          dl ubo-unbreak   "$u/unbreak.min.txt"
+          dl easylist      https://easylist.to/easylist/easylist.txt
+          dl easyprivacy   https://easylist.to/easylist/easyprivacy.txt
+
+      - name: Prepare app config and icons
+        id: cfg
+        env:
+          VERSION_NAME: ${{ vars.VERSION_NAME }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          pip install pillow
+          python scripts/prepare.py
+
+      - name: Prepare signing
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KS_KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ] && [ -n "$KS_ALIAS" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            {
+              echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks"
+              echo "KEYSTORE_PASSWORD=$KS_PASS"
+              echo "KEY_ALIAS=$KS_ALIAS"
+              echo "KEY_PASSWORD=${KS_KEY_PASS:-$KS_PASS}"
+            } >> "$GITHUB_ENV"
+            echo "Signing with the provided keystore"
+          else
+            echo "::warning::No signing secrets set, signing with the bundled test key"
+          fi
+
+      - name: Build release APK (universal)
+        run: gradle assembleRelease --no-daemon
+
+      - name: Name the APK
+        env:
+          APK_NAME: ${{ steps.cfg.outputs.apk_name }}
+        run: |
+          mkdir dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/$APK_NAME"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP }}-${{ github.run_number }}
+          path: dist/*.apk
