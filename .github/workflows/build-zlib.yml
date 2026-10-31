@@ -1,6 +1,6 @@
 # To build another app: copy this file, change `name` and APP below,
 # and create configs/<APP>/config.json (+ icon.png). Nothing else to edit.
-name: Build APK (example)
+name: Build APK (Z-Lib)
 
 env:
   APP: zlib
