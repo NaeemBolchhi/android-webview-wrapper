@@ -58,13 +58,15 @@ jobs:
 
       - name: Prepare signing
         env:
-          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_B64: ${{ secrets.KEYSTORE_FILE }}
           KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
           KS_ALIAS: ${{ secrets.KEY_ALIAS }}
           KS_KEY_PASS: ${{ secrets.KEY_PASSWORD }}
         run: |
           if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ] && [ -n "$KS_ALIAS" ]; then
             echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KS_PASS" -alias "$KS_ALIAS" > /dev/null 2>&1 \
+              || { echo "::error::KEYSTORE_FILE could not be opened with KEYSTORE_PASSWORD / KEY_ALIAS (is it base64 of the .jks?)"; exit 1; }
             {
               echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks"
               echo "KEYSTORE_PASSWORD=$KS_PASS"

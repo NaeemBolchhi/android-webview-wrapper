@@ -28,5 +28,5 @@ It then offers **Update** / **Not now**. *Update* downloads the APK inside the a
 (Android asks once to allow installs from the app). The repo must be public; local builds have no update source and skip the check.
 
 ## Signing (optional repo secrets, shared by all apps)
-`KEYSTORE_BASE64` (`base64 -w0 release.jks`), `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
+`KEYSTORE_FILE` (`base64 -w0 release.jks`), `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
 Without them the bundled `signing/test.jks` is used.
