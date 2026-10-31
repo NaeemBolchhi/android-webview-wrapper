@@ -32,6 +32,7 @@ class DownloadService : Service() {
     private val pending = AtomicInteger()
     private val ids = AtomicInteger(100)
     @Volatile private var lastStart = 0
+    @Volatile private var fgId = -1
     private lateinit var nm: NotificationManager
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -50,7 +51,7 @@ class DownloadService : Service() {
         val id = ids.incrementAndGet()
         pending.incrementAndGet()
         val guess = nameFromUrl(url)
-        ServiceCompat.startForeground(this, id, progress(guess, 0, -1, -1, "Waiting…"), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        startFg(id, progress(guess, 0, -1, -1, "Waiting…"))
         val ua = intent.getStringExtra("ua")
         val cd = intent.getStringExtra("cd")
         val ref = intent.getStringExtra("ref")
@@ -62,7 +63,7 @@ class DownloadService : Service() {
         var uri: Uri? = null
         var name = guess
         try {
-            ServiceCompat.startForeground(this, id, progress(name, 0, -1, -1), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            startFg(id, progress(name, 0, -1, -1))
             val conn = open(url, ua, ref)
             name = nameFromDisposition(conn.getHeaderField("Content-Disposition"))
                 ?: nameFromDisposition(cd) ?: nameFromUrl(conn.url.toString())
@@ -104,7 +105,9 @@ class DownloadService : Service() {
                 }
             }
             contentResolver.update(out, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
-            finish(id)
+            nm.notify(id, progressFull(name, done))   // show 100%
+            Thread.sleep(500)
+            finish(id)                                // remove the progress notification
             nm.notify(ids.incrementAndGet(), complete(name, done, out, mime))
         } catch (e: Exception) {
             uri?.let { runCatching { contentResolver.delete(it, null, null) } }
@@ -120,8 +123,21 @@ class DownloadService : Service() {
         }
     }
 
+    private fun startFg(id: Int, n: Notification) {
+        fgId = id
+        ServiceCompat.startForeground(this, id, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+    }
+
+    /**
+     * The system ignores cancel() for the notification that is bound to the foreground service
+     * (and stopForeground(DETACH) is asynchronous, so cancel() right after it raced and lost).
+     * Removing it through stopForeground is the reliable way.
+     */
     private fun finish(id: Int) {
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
+        if (fgId == id) {
+            fgId = -1
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        }
         nm.cancel(id)
     }
 
@@ -149,13 +165,20 @@ class DownloadService : Service() {
         throw IOException("Too many redirects")
     }
 
+    private fun builder(name: String) = Notification.Builder(this, CH_PROGRESS)
+        .setSmallIcon(android.R.drawable.stat_sys_download)
+        .setContentTitle(name)
+        .setOngoing(true)
+        .setOnlyAlertOnce(true)
+        .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+
+    private fun progressFull(name: String, size: Long): Notification {
+        val s = Formatter.formatFileSize(this, size)
+        return builder(name).setProgress(100, 100, false).setContentText("$s of $s • 100%").build()
+    }
+
     private fun progress(name: String, done: Long, total: Long, eta: Long, note: String? = null): Notification {
-        val b = Notification.Builder(this, CH_PROGRESS)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle(name)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+        val b = builder(name)
         val d = Formatter.formatFileSize(this, done)
         val etaText = if (eta >= 0) "${fmt(eta)} left" else "ETA unknown"
         if (total > 0) {
