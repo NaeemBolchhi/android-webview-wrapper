@@ -11,7 +11,7 @@ class CosmeticBridge {
 }
 
 /**
- * Native filter engine that reads uBlock Origin / EasyList syntax from assets/filters/*.txt.
+ * Native filter engine that reads uBlock Origin / EasyList syntax from the .txt files in assets/filters.
  *  - Cosmetic: `##sel`, `domain##sel`, `#@#sel` (plain CSS selectors only)
  *  - Network:  `||host^`, `||host^$third-party`, `@@||host^` (host-level rules only)
  */
