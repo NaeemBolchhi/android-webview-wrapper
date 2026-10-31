@@ -33,14 +33,19 @@ jobs:
         run: |
           d=app/src/main/assets/filters
           mkdir -p "$d"
-          dl() { curl -fsSL --retry 3 "$2" -o "$d/$1.txt" || echo "::warning::could not download $1"; }
-          u=https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters
-          dl ubo-filters   "$u/filters.min.txt"
-          dl ubo-privacy   "$u/privacy.min.txt"
-          dl ubo-badware   "$u/badware.min.txt"
-          dl ubo-unbreak   "$u/unbreak.min.txt"
-          dl easylist      https://easylist.to/easylist/easylist.txt
-          dl easyprivacy   https://easylist.to/easylist/easyprivacy.txt
+          dl() { # name url [fallback-url]
+            curl -fsSL --retry 3 "$2" -o "$d/$1.txt" \
+              || { [ -n "$3" ] && curl -fsSL --retry 3 "$3" -o "$d/$1.txt"; } \
+              || echo "::warning::could not download $1"
+          }
+          u=https://ublockorigin.github.io/uAssets/filters
+          c=https://cdn.jsdelivr.net/gh/uBlockOrigin/uAssetsCDN@main/filters
+          for f in filters privacy badware unbreak quick-fixes; do
+            dl "ubo-$f" "$u/$f.min.txt" "$c/$f.min.txt"
+          done
+          dl easylist    https://easylist.to/easylist/easylist.txt https://ublockorigin.github.io/uAssets/thirdparties/easylist.txt
+          dl easyprivacy https://easylist.to/easylist/easyprivacy.txt https://ublockorigin.github.io/uAssets/thirdparties/easyprivacy.txt
+          ls -la "$d"
 
       - name: Prepare app config and icons
         id: cfg
